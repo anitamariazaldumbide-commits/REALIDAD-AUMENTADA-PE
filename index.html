@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visor RA funcional - Punto de equilibrio</title>
+  <style>
+    :root{
+      --ink:#133142;
+      --accent:#0a8f8f;
+      --accent2:#ffc857;
+      --bg:#eef7f8;
+      --card:#ffffff;
+      --muted:#5a7380;
+      --danger:#c14b4b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    header{background:linear-gradient(120deg,#0e3d52,#0a7886);color:#fff;padding:24px 18px}
+    header h1{margin:0 0 8px 0;font-size:clamp(1.6rem,2.5vw,2.3rem)}
+    header p{margin:0;max-width:900px;color:#d8f7f6}
+    main{max-width:1200px;margin:0 auto;padding:20px}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:18px;align-items:start}
+    @media(max-width:900px){.layout{grid-template-columns:1fr}}
+    .card{background:var(--card);border-radius:18px;padding:18px;box-shadow:0 10px 28px rgba(14,61,82,.09)}
+    h2{margin:0 0 14px 0;font-size:1.25rem}
+    .field{margin-bottom:14px}
+    .row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+    label{font-weight:700}
+    .help{font-size:.92rem;color:var(--muted);margin-top:4px}
+    input[type="range"]{width:100%;accent-color:var(--accent)}
+    .value{font-weight:800;color:var(--accent)}
+    .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}
+    .metric{background:#f1fbfb;border-left:5px solid var(--accent);padding:12px;border-radius:12px}
+    .metric .k{font-size:.9rem;color:var(--muted);display:block}
+    .metric .v{font-size:1.25rem;font-weight:800}
+    .buttons{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+    button,.buttonlike{border:0;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--accent);color:#fff}
+    button.secondary,.buttonlike.secondary{background:#e8f4f5;color:var(--ink);border:1px solid #cde4e8}
+    button.warn{background:var(--danger)}
+    .stage-wrap{display:grid;grid-template-columns:1fr;gap:14px}
+    .stage{position:relative;overflow:hidden;min-height:520px;background:#d9eef1;border-radius:20px;border:2px solid #d5e8eb}
+    @media(max-width:700px){.stage{min-height:420px}}
+    .stage video,.stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#d9eef1}
+    .stage video{display:none}
+    .overlay{position:absolute;inset:0;pointer-events:none}
+    .hud-title{position:absolute;top:16px;left:16px;background:rgba(10,35,48,.82);color:#fff;padding:9px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);backdrop-filter: blur(4px);font-weight:800}
+    .panel{position:absolute;right:18px;top:18px;max-width:300px;background:rgba(6,35,45,.82);color:#fff;padding:16px;border-radius:16px;border:2px solid rgba(0,255,220,.35);box-shadow:0 0 0 1px rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.25);backdrop-filter: blur(5px)}
+    .panel .big{font-size:2rem;font-weight:900;line-height:1;color:#92ffee;margin:6px 0}
+    .panel .line{font-size:.95rem;margin:4px 0;color:#def8f6}
+    .panel .eq{margin-top:8px;font-size:.88rem;color:#bdeceb}
+    .tag{position:absolute;background:rgba(255,255,255,.9);color:#143443;padding:8px 10px;border-radius:12px;font-weight:800;box-shadow:0 8px 20px rgba(0,0,0,.12);border:1px solid rgba(10,143,143,.25)}
+    .tag::after{content:"";position:absolute;width:2px;background:rgba(255,255,255,.9)}
+    .tag1{left:10%;top:18%}
+    .tag1::after{height:70px;left:22px;top:100%}
+    .tag2{left:11%;bottom:15%}
+    .tag2::after{height:65px;left:26px;bottom:100%}
+    .tag3{right:12%;bottom:18%}
+    .tag3::after{height:58px;left:28px;bottom:100%}
+    .status{margin-top:8px;padding:10px 12px;border-radius:12px;background:#f4fbfb;border:1px solid #d7ecef;color:var(--muted);font-size:.95rem}
+    .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .legend .mini{background:#f8fcfc;border-radius:12px;padding:12px;border:1px solid #e2eff1}
+    .note{font-size:.95rem;color:var(--muted)}
+    .formula{background:#fff8df;border-left:5px solid var(--accent2);padding:12px;border-radius:12px;margin-top:12px}
+    .chart{width:100%;height:auto;border-radius:14px;background:#fbfefe;border:1px solid #e3eff1}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Visor de realidad aumentada funcional</h1>
+  <p>Prototipo didáctico para Segundo de Bachillerato. Permite ver el resultado del punto de equilibrio sobre una imagen o sobre la cámara del dispositivo, de forma práctica y sin depender de imágenes externas.</p>
+</header>
+<main>
+  <div class="layout">
+    <section class="card">
+      <h2>1. Datos del emprendimiento</h2>
+
+      <div class="field">
+        <div class="row"><label for="fijos">Costos fijos</label><span id="fijosVal" class="value"></span></div>
+        <input id="fijos" type="range" min="10" max="300" step="5" value="60">
+        <div class="help">Ejemplo: alquiler de mesa, decoración, utensilios, transporte.</div>
+      </div>
+
+      <div class="field">
+        <div class="row"><label for="precio">Precio de venta unitario</label><span id="precioVal" class="value"></span></div>
+        <input id="precio" type="range" min="1" max="10" step="0.25" value="3">
+        <div class="help">Valor que se cobrará por cada producto vendido.</div>
+      </div>
+
+      <div class="field">
+        <div class="row"><label for="variable">Costo variable unitario</label><span id="variableVal" class="value"></span></div>
+        <input id="variable" type="range" min="0.25" max="8" step="0.25" value="1.5">
+        <div class="help">Costo de ingredientes o materiales por cada unidad.</div>
+      </div>
+
+      <div class="field">
+        <div class="row"><label for="unidades">Unidades previstas</label><span id="unidadesVal" class="value"></span></div>
+        <input id="unidades" type="range" min="0" max="200" step="1" value="40">
+        <div class="help">Cantidad que se planea vender para estimar ganancia o pérdida.</div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><span class="k">Margen de contribución</span><span id="margenTxt" class="v"></span></div>
+        <div class="metric"><span class="k">Punto de equilibrio</span><span id="peTxt" class="v"></span></div>
+        <div class="metric"><span class="k">Ingresos esperados</span><span id="ingresoTxt" class="v"></span></div>
+        <div class="metric"><span class="k">Resultado</span><span id="resultadoTxt" class="v"></span></div>
+      </div>
+
+      <div class="formula">
+        <strong>Fórmula:</strong> Punto de equilibrio = Costos fijos / (Precio de venta − Costo variable unitario)
+      </div>
+    </section>
+
+    <section class="stage-wrap">
+      <section class="card">
+        <h2>2. Visor aumentado</h2>
+        <div class="buttons">
+          <button id="demoBtn">Usar imagen de demostración</button>
+          <button id="uploadBtn" class="secondary">Cargar imagen</button>
+          <button id="cameraBtn" class="secondary">Activar cámara</button>
+          <button id="stopBtn" class="warn">Desactivar cámara</button>
+          <input id="fileInput" type="file" accept="image/*" hidden>
+        </div>
+
+        <div class="stage" id="stage">
+          <img id="demoImage" alt="Imagen demostrativa del emprendimiento en feria escolar">
+          <video id="cameraView" autoplay muted playsinline></video>
+          <div class="overlay">
+            <div class="hud-title">Visor RA · Punto de equilibrio</div>
+            <div class="panel">
+              <div>Resultado principal</div>
+              <div id="panelPE" class="big">40 unidades</div>
+              <div class="line" id="panelResumen1">Precio: $3,00 · Variable: $1,50</div>
+              <div class="line" id="panelResumen2">Costos fijos: $60,00</div>
+              <div class="line" id="panelResumen3">Con 40 unidades: equilibrio exacto</div>
+              <div class="eq" id="panelFormula">PE = 60 / (3,00 − 1,50) = 40</div>
+            </div>
+            <div class="tag tag1" id="tagPrecio">Precio de venta<br>$3,00</div>
+            <div class="tag tag2" id="tagVariable">Costo variable<br>$1,50</div>
+            <div class="tag tag3" id="tagFijos">Costos fijos<br>$60,00</div>
+          </div>
+        </div>
+
+        <div id="status" class="status">Se está mostrando una imagen de demostración, por eso siempre deberías ver el visor. Si deseas, puedes cargar una imagen propia o activar la cámara.</div>
+      </section>
+
+      <section class="card">
+        <h2>3. Interpretación del resultado</h2>
+        <div class="legend">
+          <div class="mini"><strong>¿Qué significa el punto de equilibrio?</strong><div class="note" id="interp1"></div></div>
+          <div class="mini"><strong>¿Qué ocurre con las unidades previstas?</strong><div class="note" id="interp2"></div></div>
+          <div class="mini"><strong>Recomendación</strong><div class="note" id="interp3"></div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4. Gráfico de apoyo</h2>
+        <svg id="chart" class="chart" viewBox="0 0 760 320" aria-label="Gráfico de ingresos y costos"></svg>
+      </section>
+    </section>
+  </div>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const fijos = $('fijos'), precio = $('precio'), variable = $('variable'), unidades = $('unidades');
+  const demoImage = $('demoImage'), cameraView = $('cameraView'), fileInput = $('fileInput');
+  const statusBox = $('status');
+  let currentStream = null;
+
+  const fmt = n => '$' + Number(n).toFixed(2).replace('.', ',');
+
+  // Imagen de demostración embebida para que SIEMPRE se vea algo
+  const demoSVG = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#d7f4fb"/>
+          <stop offset="100%" stop-color="#bfe6ef"/>
+        </linearGradient>
+        <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#a15a30"/>
+          <stop offset="100%" stop-color="#6c381d"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" fill="url(#sky)"/>
+      <rect y="520" width="1200" height="280" fill="#d9ccb0"/>
+      <rect x="160" y="160" width="880" height="120" rx="14" fill="#0f5363"/>
+      <text x="600" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" fill="#ffffff" font-weight="700">FERIA ESTUDIANTIL DE EMPRENDIMIENTO</text>
+      <rect x="270" y="340" width="660" height="210" rx="18" fill="#f2b45a" stroke="#9f5a2b" stroke-width="16"/>
+      <rect x="350" y="390" width="500" height="110" rx="10" fill="url(#wood)"/>
+      <text x="600" y="440" text-anchor="middle" font-family="Arial, sans-serif" font-size="46" fill="#ffffff" font-weight="700">SÁNDUCHES</text>
+      <text x="600" y="485" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#ffefbf">Emprendimiento estudiantil</text>
+      <ellipse cx="600" cy="600" rx="260" ry="42" fill="#00000022"/>
+      <text x="220" y="690" font-family="Arial, sans-serif" font-size="44">🥪</text>
+      <text x="950" y="680" font-family="Arial, sans-serif" font-size="44">💵</text>
+    </svg>`;
+  demoImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(demoSVG);
+
+  function drawChart(F,P,V,Q,peValid,peValue){
+    const svg = $('chart');
+    const maxX = Math.max(100, Q + 20, peValid ? Math.ceil(peValue) + 15 : 0);
+    const maxY = Math.max(F + V * maxX, P * maxX, 20) * 1.15;
+    const sx = x => 60 + (x / maxX) * 660;
+    const sy = y => 270 - (y / maxY) * 220;
+    let grid = '';
+    for(let i=0;i<=5;i++){
+      const yVal = (maxY/5)*i;
+      const y = sy(yVal);
+      grid += `<line x1="60" y1="${y}" x2="720" y2="${y}" stroke="#e2eef0"/>`;
+      grid += `<text x="8" y="${y+4}" font-size="12" fill="#607985">${fmt(yVal)}</text>`;
+    }
+    for(let i=0;i<=5;i++){
+      const xVal = Math.round((maxX/5)*i);
+      const x = sx(xVal);
+      grid += `<line x1="${x}" y1="270" x2="${x}" y2="40" stroke="#eef5f6"/>`;
+      grid += `<text x="${x-8}" y="292" font-size="12" fill="#607985">${xVal}</text>`;
+    }
+    const pointsIncome=[];
+    const pointsCost=[];
+    for(let i=0;i<=40;i++){
+      const x = maxX * i / 40;
+      pointsIncome.push(`${sx(x)},${sy(P*x)}`);
+      pointsCost.push(`${sx(x)},${sy(F + V*x)}`);
+    }
+    let extra='';
+    if(peValid){
+      const x = peValue;
+      const y = P * x;
+      extra += `<line x1="${sx(x)}" y1="270" x2="${sx(x)}" y2="${sy(y)}" stroke="#1a7668" stroke-dasharray="5 4"/>`;
+      extra += `<circle cx="${sx(x)}" cy="${sy(y)}" r="6" fill="#1a7668"/>`;
+      extra += `<text x="${Math.min(540,sx(x)+10)}" y="${Math.max(50,sy(y)-10)}" font-size="13" fill="#1a7668" font-weight="700">PE ≈ ${peValue.toFixed(2)} uds.</text>`;
+    }
+    svg.innerHTML = `
+      <rect width="760" height="320" fill="#fbfefe" rx="12"/>
+      ${grid}
+      <line x1="60" y1="270" x2="720" y2="270" stroke="#4f6a75" stroke-width="1.5"/>
+      <line x1="60" y1="270" x2="60" y2="35" stroke="#4f6a75" stroke-width="1.5"/>
+      <polyline fill="none" stroke="#068f9a" stroke-width="4" points="${pointsIncome.join(' ')}"/>
+      <polyline fill="none" stroke="#e0a231" stroke-width="4" points="${pointsCost.join(' ')}"/>
+      ${extra}
+      <text x="110" y="28" font-size="14" fill="#068f9a" font-weight="700">Ingresos</text>
+      <text x="210" y="28" font-size="14" fill="#a46f13" font-weight="700">Costos totales</text>
+      <text x="585" y="300" font-size="12" fill="#607985">Unidades vendidas</text>
+    `;
+  }
+
+  function update(){
+    const F = Number(fijos.value);
+    const P = Number(precio.value);
+    const V = Number(variable.value);
+    const Q = Number(unidades.value);
+    const margin = P - V;
+    const valid = margin > 0;
+    const pe = valid ? (F / margin) : null;
+    const peRounded = valid ? Math.ceil(pe) : null;
+    const ingreso = P * Q;
+    const costoTotal = F + V * Q;
+    const resultado = ingreso - costoTotal;
+
+    $('fijosVal').textContent = fmt(F);
+    $('precioVal').textContent = fmt(P);
+    $('variableVal').textContent = fmt(V);
+    $('unidadesVal').textContent = Q + ' uds.';
+    $('margenTxt').textContent = valid ? fmt(margin) : 'Inválido';
+    $('peTxt').textContent = valid ? `${peRounded} uds.` : 'No existe';
+    $('ingresoTxt').textContent = fmt(ingreso);
+    $('resultadoTxt').textContent = (resultado >= 0 ? '+' : '-') + fmt(Math.abs(resultado));
+
+    $('panelPE').textContent = valid ? `${peRounded} unidades` : 'No existe';
+    $('panelResumen1').textContent = `Precio: ${fmt(P)} · Variable: ${fmt(V)}`;
+    $('panelResumen2').textContent = `Costos fijos: ${fmt(F)}`;
+
+    let stateText = '';
+    if(!valid){
+      stateText = 'El precio de venta no cubre el costo variable; así no se puede alcanzar equilibrio.';
+      $('panelFormula').textContent = `PE no existe porque ${fmt(P)} − ${fmt(V)} ≤ 0`;
+    }else if(resultado > 0){
+      stateText = `Con ${Q} unidades habría una ganancia de ${fmt(resultado)}.`;
+      $('panelFormula').textContent = `PE = ${F} / (${P.toFixed(2)} − ${V.toFixed(2)}) = ${pe.toFixed(2)}`.replace(/\./g,',');
+    }else if(resultado < 0){
+      stateText = `Con ${Q} unidades aún habría una pérdida de ${fmt(Math.abs(resultado))}.`;
+      $('panelFormula').textContent = `PE = ${F} / (${P.toFixed(2)} − ${V.toFixed(2)}) = ${pe.toFixed(2)}`.replace(/\./g,',');
+    }else{
+      stateText = `Con ${Q} unidades se está exactamente en equilibrio.`;
+      $('panelFormula').textContent = `PE = ${F} / (${P.toFixed(2)} − ${V.toFixed(2)}) = ${pe.toFixed(2)}`.replace(/\./g,',');
+    }
+    $('panelResumen3').textContent = stateText;
+
+    $('tagPrecio').innerHTML = `Precio de venta<br>${fmt(P)}`;
+    $('tagVariable').innerHTML = `Costo variable<br>${fmt(V)}`;
+    $('tagFijos').innerHTML = `Costos fijos<br>${fmt(F)}`;
+
+    if(!valid){
+      $('interp1').textContent = 'No es posible calcular un punto de equilibrio válido porque el precio de venta es menor o igual al costo variable. Primero hay que revisar el precio o reducir costos.';
+      $('interp2').textContent = `Con ${Q} unidades no se estaría construyendo una operación sostenible, ya que cada venta no aporta a cubrir los costos fijos.`;
+      $('interp3').textContent = 'Se recomienda aumentar el precio de venta o disminuir el costo variable unitario antes de lanzar el producto.';
+    } else {
+      $('interp1').textContent = `El negocio necesita vender aproximadamente ${peRounded} unidades para recuperar la inversión y no tener pérdida.`;
+      $('interp2').textContent = resultado > 0
+        ? `Si se venden ${Q} unidades, el emprendimiento obtendría una ganancia de ${fmt(resultado)}.`
+        : resultado < 0
+          ? `Si se venden ${Q} unidades, el emprendimiento todavía tendría una pérdida de ${fmt(Math.abs(resultado))}.`
+          : `Si se venden ${Q} unidades, el negocio quedaría exactamente en equilibrio, sin ganar ni perder.`;
+      $('interp3').textContent = Q < peRounded
+        ? 'Conviene aumentar las ventas previstas, revisar el precio o bajar costos para superar el punto de equilibrio.'
+        : 'La proyección es aceptable porque supera el punto de equilibrio; ahora conviene analizar si la utilidad es suficiente.';
+    }
+
+    drawChart(F,P,V,Q,valid,pe);
+  }
+
+  async function startCamera(){
+    if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+      statusBox.textContent = 'Tu navegador no permite usar la cámara en este contexto. Puedes seguir usando la imagen de demostración o cargar una imagen desde tu equipo.';
+      return;
+    }
+    try{
+      stopCamera();
+      currentStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+      cameraView.srcObject = currentStream;
+      cameraView.style.display = 'block';
+      demoImage.style.display = 'none';
+      statusBox.textContent = 'Cámara activada correctamente. El resultado del punto de equilibrio aparece superpuesto sobre la vista en tiempo real.';
+    }catch(err){
+      demoImage.style.display = 'block';
+      cameraView.style.display = 'none';
+      statusBox.textContent = 'No se pudo activar la cámara (' + err.name + '). Se mantiene la imagen de demostración para que el visor siga siendo funcional.';
+    }
+  }
+
+  function stopCamera(){
+    if(currentStream){
+      currentStream.getTracks().forEach(track => track.stop());
+      currentStream = null;
+    }
+    cameraView.srcObject = null;
+    cameraView.style.display = 'none';
+  }
+
+  $('demoBtn').addEventListener('click', ()=>{
+    stopCamera();
+    demoImage.style.display = 'block';
+    statusBox.textContent = 'Se está usando la imagen de demostración integrada. Puedes cambiarla con el botón “Cargar imagen”.';
+  });
+
+  $('uploadBtn').addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    stopCamera();
+    const reader = new FileReader();
+    reader.onload = ev => {
+      demoImage.src = ev.target.result;
+      demoImage.style.display = 'block';
+      statusBox.textContent = 'Imagen cargada correctamente. El resultado del punto de equilibrio ya se muestra sobre tu propia imagen.';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('cameraBtn').addEventListener('click', startCamera);
+  $('stopBtn').addEventListener('click', ()=>{
+    stopCamera();
+    demoImage.style.display = 'block';
+    statusBox.textContent = 'Cámara desactivada. Se vuelve a mostrar la imagen de demostración.';
+  });
+
+  [fijos, precio, variable, unidades].forEach(el => el.addEventListener('input', update));
+  update();
+</script>
+</body>
+</html>
